@@ -237,6 +237,43 @@
     let statChar = null;
     let netsChar = null;
 
+    async function ensureConnected() {
+      if (!device) {
+        throw new Error("Not connected to any device.");
+      }
+      // If GATT is disconnected, reconnect and re-fetch service + characteristics
+      if (!device.gatt.connected) {
+        setStatus("Reconnecting to device…");
+        server = await device.gatt.connect();
+        service = await server.getPrimaryService(SERVICE_UUID);
+
+        ssidChar = await service.getCharacteristic(SSID_CHAR_UUID);
+        passChar = await service.getCharacteristic(PASS_CHAR_UUID);
+        cmdChar  = await service.getCharacteristic(CMD_CHAR_UUID);
+        statChar = await service.getCharacteristic(STAT_CHAR_UUID);
+        netsChar = await service.getCharacteristic(NETS_CHAR_UUID);
+
+        // Re-subscribe notifications
+        await statChar.startNotifications();
+        statChar.addEventListener("characteristicvaluechanged", evt => {
+          const val = decodeText(evt.target.value);
+          setStatus(val);
+        });
+
+        await netsChar.startNotifications();
+        netsChar.addEventListener("characteristicvaluechanged", evt => {
+          const json = decodeText(evt.target.value);
+          try {
+            const nets = JSON.parse(json);
+            populateNetworks(nets);
+          } catch (e) {
+            console.error("Failed to parse networks JSON:", e, json);
+          }
+        });
+      }
+    }
+
+
     function setStatus(text) {
       bleStatus.innerHTML = '<span class="label">Status:</span> ' + text;
     }
@@ -335,6 +372,21 @@
         ssidSelect.appendChild(opt);
       });
     }
+    async function scanNetworks() {
+      try {
+        await ensureConnected();
+        if (!cmdChar) {
+          setStatus("Not connected.");
+          return;
+        }
+        setStatus("Requesting scan…");
+        await cmdChar.writeValue(encodeText("SCAN"));
+      } catch (err) {
+        console.error(err);
+        setStatus("Scan error: " + err.message);
+      }
+    }
+
 
     async function scanNetworks() {
       if (!cmdChar) {
@@ -351,22 +403,23 @@
     }
 
     async function applyWifi() {
-      if (!ssidChar || !passChar || !cmdChar) {
-        setStatus("Not connected.");
-        return;
-      }
-
-      const selectedSsid = ssidSelect.value;
-      const manualSsid = ssidInput.value.trim();
-      const ssid = manualSsid || selectedSsid;
-      const password = passwordInput.value;
-
-      if (!ssid) {
-        setStatus("Please select an SSID or enter one manually.");
-        return;
-      }
-
       try {
+        await ensureConnected();
+        if (!ssidChar || !passChar || !cmdChar) {
+          setStatus("Not connected.");
+          return;
+        }
+
+        const selectedSsid = ssidSelect.value;
+        const manualSsid = ssidInput.value.trim();
+        const ssid = manualSsid || selectedSsid;
+        const password = passwordInput.value;
+
+        if (!ssid) {
+          setStatus("Please select an SSID or enter one manually.");
+          return;
+        }
+
         setStatus("Sending credentials…");
         await ssidChar.writeValue(encodeText(ssid));
         await passChar.writeValue(encodeText(password || ""));
