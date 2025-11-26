@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BLE Test</title>
+</head>
+<body>
+  <button id="btn">Connect via Web Bluetooth</button>
+  <pre id="log"></pre>
+
+  <script>
+    const log = msg => {
+      document.getElementById("log").textContent += msg + "\n";
+    };
+
+    document.getElementById("btn").addEventListener("click", async () => {
+      if (!navigator.bluetooth) {
+        log("Web Bluetooth not available in this browser.");
+        return;
+      }
+      try {
+        log("Requesting any device...");
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ["12345678-1234-5678-1234-56789abcdef0"]
+        });
+        log("Chosen device: " + device.name + " (" + device.id + ")");
+        const server = await device.gatt.connect();
+        log("GATT connected.");
+      } catch (e) {
+        log("Error: " + e.message);
+      }
+    });
+  </script>
+</body>
+</html>
