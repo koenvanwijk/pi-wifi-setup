@@ -271,7 +271,8 @@
       try {
         setStatus("Requesting device…");
         device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [SERVICE_UUID] }]
+          acceptAllDevices: true,
+          optionalServices: ["12345678-1234-5678-1234-56789abcdef0"]
         });
 
         setStatus("Connecting to GATT server…");
