@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pi Local Wi-Fi Setup</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light dark;
+    }
+    body {
+      margin: 0;
+      padding: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 600px;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.95);
+    }
+    @media (prefers-color-scheme: dark) {
+      .container {
+        background: rgba(12, 12, 20, 0.95);
+        color: #f5f5f5;
+      }
+      input, select, button {
+        background-color: #101018;
+        color: #f5f5f5;
+        border-color: #333;
+      }
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.5rem;
+    }
+    p {
+      line-height: 1.5;
+    }
+    label {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.45rem 0.6rem;
+      margin-top: 0.25rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 0.9rem;
+    }
+    button {
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    button.primary {
+      background: #2563eb;
+      color: white;
+    }
+    button.secondary {
+      background: transparent;
+      border-color: #aaa;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .status {
+      margin-top: 0.6rem;
+      font-size: 0.85rem;
+      min-height: 1.2em;
+      white-space: pre-line;
+    }
+    .status span.label {
+      font-weight: 600;
+      margin-right: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Raspberry Pi Local Wi-Fi Setup</h1>
+    <p>
+      You are connected to the Pi’s temporary setup Wi-Fi (<code>Pi-Setup-XXXX</code>).
+      Use this page to select a network and enter the Wi-Fi password.
+    </p>
+
+    <button id="scan-btn" class="secondary">
+      Scan Wi-Fi Networks
+    </button>
+
+    <label for="ssid-select">Available networks</label>
+    <select id="ssid-select">
+      <option value="">— Press scan —</option>
+    </select>
+
+    <label for="ssid-input">SSID (override)</label>
+    <input id="ssid-input" type="text" placeholder="Leave empty to use selection" />
+
+    <label for="password-input">Wi-Fi password</label>
+    <input id="password-input" type="password" autocomplete="new-password" />
+
+    <button id="apply-btn" class="primary">
+      Apply Wi-Fi Settings
+    </button>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const scanBtn = document.getElementById("scan-btn");
+    const applyBtn = document.getElementById("apply-btn");
+    const ssidSelect = document.getElementById("ssid-select");
+    const ssidInput = document.getElementById("ssid-input");
+    const passwordInput = document.getElementById("password-input");
+    const statusEl = document.getElementById("status");
+
+    function setStatus(text) {
+      statusEl.innerHTML = '<span class="label">Status:</span> ' + text;
+    }
+
+    async function scanNetworks() {
+      try {
+        setStatus("Scanning…");
+        const res = await fetch("/api/scan");
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        const data = await res.json();
+        populateNetworks(data.networks || []);
+        setStatus("Scan complete.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Scan error: " + err.message);
+      }
+    }
+
+    function populateNetworks(nets) {
+      ssidSelect.innerHTML = "";
+      if (!Array.isArray(nets) || nets.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No networks found";
+        ssidSelect.appendChild(opt);
+        return;
+      }
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select a network";
+      ssidSelect.appendChild(placeholder);
+
+      nets.forEach(n => {
+        const opt = document.createElement("option");
+        opt.value = n.s;
+        const sec = n.sec || "UNKNOWN";
+        opt.textContent = `${n.s} (${n.p || 0}%, ${sec})`;
+        ssidSelect.appendChild(opt);
+      });
+    }
+
+    async function applyWifi() {
+      const selectedSsid = ssidSelect.value;
+      const manualSsid = ssidInput.value.trim();
+      const ssid = manualSsid || selectedSsid;
+      const password = passwordInput.value;
+
+      if (!ssid) {
+        setStatus("Please select an SSID or enter one manually.");
+        return;
+      }
+
+      try {
+        setStatus("Sending Wi-Fi config…");
+        const res = await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ssid, password })
+        });
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        const data = await res.json();
+        if (data.status === "SUCCESS") {
+          setStatus("Wi-Fi updated. The Pi will attempt to connect now.");
+        } else {
+          setStatus("Failed: " + (data.reason || "unknown error"));
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("Apply error: " + err.message);
+      }
+    }
+
+    scanBtn.addEventListener("click", scanNetworks);
+    applyBtn.addEventListener("click", applyWifi);
+
+    // Optionally perform an automatic scan on load
+    // scanNetworks();
+  </script>
+</body>
+</html>

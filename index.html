@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pi Wi-Fi Setup (GitHub Pages)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light dark;
+    }
+    body {
+      margin: 0;
+      padding: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 700px;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+    }
+    @media (prefers-color-scheme: dark) {
+      .container {
+        background: rgba(12, 12, 20, 0.9);
+        color: #f5f5f5;
+      }
+      input, select, button, textarea {
+        background-color: #101018;
+        color: #f5f5f5;
+        border-color: #333;
+      }
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.6rem;
+    }
+    h2 {
+      margin-top: 1.5rem;
+      font-size: 1.2rem;
+    }
+    p {
+      line-height: 1.5;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid #ccc;
+      font-size: 0.75rem;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .card {
+      flex: 1 1 260px;
+      border-radius: 12px;
+      padding: 1rem;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: rgba(255,255,255,0.8);
+    }
+    label {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.45rem 0.6rem;
+      margin-top: 0.25rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 0.9rem;
+    }
+    button {
+      margin-top: 0.75rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    button.primary {
+      background: #2563eb;
+      color: white;
+    }
+    button.secondary {
+      background: transparent;
+      border-color: #aaa;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .status {
+      margin-top: 0.6rem;
+      font-size: 0.85rem;
+      min-height: 1.2em;
+      white-space: pre-line;
+    }
+    .status span.label {
+      font-weight: 600;
+      margin-right: 0.25rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      border: 1px solid rgba(0,0,0,0.2);
+      margin-left: 0.25rem;
+    }
+    ul.steps {
+      padding-left: 1.1rem;
+      font-size: 0.9rem;
+    }
+    ul.steps li {
+      margin-bottom: 0.3rem;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85rem;
+      background: rgba(0,0,0,0.05);
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Raspberry Pi Wi-Fi Setup</h1>
+    <p>
+      Configure your Raspberry Pi’s Wi-Fi either via
+      <strong>Bluetooth (Android / desktop Chrome)</strong> or via
+      <strong>setup access point (iPhone and others)</strong>.
+    </p>
+    <p class="tag">GitHub: <code>koenvanwijk/pi-wifi-setup</code></p>
+
+    <div id="env-info" class="status"></div>
+
+    <div class="row">
+      <!-- Android / Web Bluetooth card -->
+      <div class="card" id="ble-card">
+        <h2>Android / Web Bluetooth</h2>
+        <p>
+          Use this on Android (Chrome/Chromium) or desktop Chrome with Bluetooth.
+          The site talks directly to the Pi over BLE – your Wi-Fi credentials never hit a server.
+        </p>
+
+        <button id="ble-connect-btn" class="primary">
+          Connect to Raspberry Pi
+        </button>
+        <button id="ble-scan-btn" class="secondary" disabled>
+          Scan Wi-Fi Networks
+        </button>
+
+        <label for="ssid-select">Available networks</label>
+        <select id="ssid-select">
+          <option value="">— Scan first —</option>
+        </select>
+
+        <label for="ssid-input">SSID (override)</label>
+        <input id="ssid-input" type="text" placeholder="Leave empty to use selection" />
+
+        <label for="password-input">Wi-Fi password</label>
+        <input id="password-input" type="password" autocomplete="new-password" />
+
+        <button id="ble-apply-btn" class="primary" disabled>
+          Apply Wi-Fi Settings
+        </button>
+
+        <div class="status" id="ble-status"></div>
+      </div>
+
+      <!-- iPhone / AP mode card -->
+      <div class="card" id="ap-card">
+        <h2>iPhone &amp; Other Devices (AP mode)</h2>
+        <p>
+          If your browser doesn’t support Web Bluetooth (e.g. Safari on iOS),
+          use the Pi’s temporary Wi-Fi access point:
+        </p>
+        <ul class="steps">
+          <li>1. Reboot the Raspberry Pi.</li>
+          <li>
+            2. Within 5 minutes, open Wi-Fi settings and connect to
+            a network like <code>Pi-Setup-XXXX</code>
+            <span class="badge">XXXX = last 4 MAC digits</span>
+          </li>
+          <li>3. Enter the setup password (e.g. <code>setup1234</code> – your value may differ).</li>
+          <li>4. After connecting, open <code>http://192.168.4.1</code> in your browser.</li>
+          <li>5. Use the Pi’s local page to pick a Wi-Fi and enter the password.</li>
+        </ul>
+        <p style="font-size:0.85rem; opacity:0.8;">
+          The AP and BLE provisioning are available for the first 5 minutes after each boot.
+          To reconfigure, just reboot the Pi and repeat these steps.
+        </p>
+      </div>
+    </div>
+
+    <p style="margin-top:1.5rem; font-size:0.8rem; opacity:0.75;">
+      BLE service UUID: <code>12345678-1234-5678-1234-56789abcdef0</code>.
+      The Pi must implement the matching GATT service &amp; commands.
+    </p>
+  </div>
+
+  <script>
+    const SERVICE_UUID   = "12345678-1234-5678-1234-56789abcdef0";
+    const SSID_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef1";
+    const PASS_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef2";
+    const CMD_CHAR_UUID  = "12345678-1234-5678-1234-56789abcdef3";
+    const STAT_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef4";
+    const NETS_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef5";
+
+    const envInfo = document.getElementById("env-info");
+
+    const connectBtn = document.getElementById("ble-connect-btn");
+    const scanBtn = document.getElementById("ble-scan-btn");
+    const applyBtn = document.getElementById("ble-apply-btn");
+    const ssidSelect = document.getElementById("ssid-select");
+    const ssidInput = document.getElementById("ssid-input");
+    const passwordInput = document.getElementById("password-input");
+    const bleStatus = document.getElementById("ble-status");
+
+    let device = null;
+    let server = null;
+    let service = null;
+    let ssidChar = null;
+    let passChar = null;
+    let cmdChar = null;
+    let statChar = null;
+    let netsChar = null;
+
+    function setStatus(text) {
+      bleStatus.innerHTML = '<span class="label">Status:</span> ' + text;
+    }
+
+    function setEnvInfo(text) {
+      envInfo.textContent = text;
+    }
+
+    function initEnv() {
+      const hasWebBluetooth = !!navigator.bluetooth;
+      if (hasWebBluetooth) {
+        setEnvInfo("Web Bluetooth is available. Use the Android / Web Bluetooth card if you are on Android/Chrome or desktop Chrome.");
+      } else {
+        setEnvInfo("Web Bluetooth not available in this browser. Use the iPhone / AP mode card.");
+        connectBtn.disabled = true;
+        scanBtn.disabled = true;
+        applyBtn.disabled = true;
+      }
+    }
+
+    initEnv();
+
+    function encodeText(str) {
+      return new TextEncoder().encode(str);
+    }
+
+    function decodeText(dataView) {
+      return new TextDecoder().decode(dataView);
+    }
+
+    async function connectToPi() {
+      try {
+        setStatus("Requesting device…");
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [SERVICE_UUID] }]
+        });
+
+        setStatus("Connecting to GATT server…");
+        server = await device.gatt.connect();
+        service = await server.getPrimaryService(SERVICE_UUID);
+
+        ssidChar = await service.getCharacteristic(SSID_CHAR_UUID);
+        passChar = await service.getCharacteristic(PASS_CHAR_UUID);
+        cmdChar  = await service.getCharacteristic(CMD_CHAR_UUID);
+        statChar = await service.getCharacteristic(STAT_CHAR_UUID);
+        netsChar = await service.getCharacteristic(NETS_CHAR_UUID);
+
+        await statChar.startNotifications();
+        statChar.addEventListener("characteristicvaluechanged", evt => {
+          const val = decodeText(evt.target.value);
+          setStatus(val);
+        });
+
+        await netsChar.startNotifications();
+        netsChar.addEventListener("characteristicvaluechanged", evt => {
+          const json = decodeText(evt.target.value);
+          try {
+            const nets = JSON.parse(json);
+            populateNetworks(nets);
+          } catch (e) {
+            console.error("Failed to parse networks JSON:", e, json);
+          }
+        });
+
+        connectBtn.textContent = "Connected ✔";
+        connectBtn.disabled = true;
+        scanBtn.disabled = false;
+        applyBtn.disabled = false;
+        setStatus("Connected. You can now scan for networks.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Error: " + err.message);
+      }
+    }
+
+    function populateNetworks(nets) {
+      ssidSelect.innerHTML = "";
+      if (!Array.isArray(nets) || nets.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No networks found";
+        ssidSelect.appendChild(opt);
+        return;
+      }
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select a network";
+      ssidSelect.appendChild(placeholder);
+
+      nets.forEach(n => {
+        const opt = document.createElement("option");
+        opt.value = n.s;
+        const sec = n.sec || "UNKNOWN";
+        opt.textContent = `${n.s} (${n.p || 0}%, ${sec})`;
+        ssidSelect.appendChild(opt);
+      });
+    }
+
+    async function scanNetworks() {
+      if (!cmdChar) {
+        setStatus("Not connected.");
+        return;
+      }
+      try {
+        setStatus("Requesting scan…");
+        await cmdChar.writeValue(encodeText("SCAN"));
+      } catch (err) {
+        console.error(err);
+        setStatus("Scan error: " + err.message);
+      }
+    }
+
+    async function applyWifi() {
+      if (!ssidChar || !passChar || !cmdChar) {
+        setStatus("Not connected.");
+        return;
+      }
+
+      const selectedSsid = ssidSelect.value;
+      const manualSsid = ssidInput.value.trim();
+      const ssid = manualSsid || selectedSsid;
+      const password = passwordInput.value;
+
+      if (!ssid) {
+        setStatus("Please select an SSID or enter one manually.");
+        return;
+      }
+
+      try {
+        setStatus("Sending credentials…");
+        await ssidChar.writeValue(encodeText(ssid));
+        await passChar.writeValue(encodeText(password || ""));
+        await cmdChar.writeValue(encodeText("APPLY"));
+        setStatus("Credentials sent. Waiting for Pi to connect… (watch status updates)");
+      } catch (err) {
+        console.error(err);
+        setStatus("Apply error: " + err.message);
+      }
+    }
+
+    connectBtn.addEventListener("click", () => {
+      if (!navigator.bluetooth) {
+        alert("Web Bluetooth is not available in this browser.");
+        return;
+      }
+      connectToPi();
+    });
+
+    scanBtn.addEventListener("click", () => {
+      scanNetworks();
+    });
+
+    applyBtn.addEventListener("click", () => {
+      applyWifi();
+    });
+  </script>
+</body>
+</html>
