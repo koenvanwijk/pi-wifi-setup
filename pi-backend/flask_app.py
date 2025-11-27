@@ -1,16 +1,4 @@
-"""Example Flask app for the Pi captive portal.
-
-Serves the local setup UI (pi-web/index.html) and exposes:
-
-- GET  /api/scan   -> { "networks": [...] }
-- POST /api/config -> { "status": "SUCCESS" } or { "status": "FAIL", "reason": "..." }
-
-This is a minimal example; in production you would:
-
-- Run this as root or via sudo wrapper so nmcli has permission.
-- Integrate with your hostapd/dnsmasq setup.
-- Possibly add a setup PIN or authentication.
-"""
+"""Example Flask app for the Pi captive portal."""
 
 from flask import Flask, send_from_directory, jsonify, request
 from wifi_helper import scan_wifi, apply_wifi

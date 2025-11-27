@@ -7,15 +7,6 @@ Bluetooth daemon configured for experimental features, e.g.:
   sudo bluetoothd --experimental
 
 and often as root (so it can access D-Bus system bus and nmcli).
-
-Service/characteristics layout matches the Web Bluetooth frontend:
-
-- Service UUID: 12345678-1234-5678-1234-56789abcdef0
-- SSID   (write)  UUID: 12345678-1234-5678-1234-56789abcdef1
-- PASS   (write)  UUID: 12345678-1234-5678-1234-56789abcdef2
-- CMD    (write)  UUID: 12345678-1234-5678-1234-56789abcdef3
-- STATUS (notify) UUID: 12345678-1234-5678-1234-56789abcdef4
-- NETS   (notify) UUID: 12345678-1234-5678-1234-56789abcdef5
 """
 
 import dbus
@@ -127,7 +118,6 @@ class WifiProvService(dbus.service.Object):
     def get_characteristics(self):
         return self.characteristics
 
-    # Helpers used by characteristics
     def set_credentials(self, ssid: str, password: str):
         self.current_ssid = ssid
         self.current_pass = password
@@ -182,7 +172,6 @@ class Characteristic(dbus.service.Object):
     @dbus.service.method(GATT_CHRC_IFACE,
                          in_signature='aya{sv}')
     def WriteValue(self, value, options):
-        # default: do nothing
         pass
 
     @dbus.service.method(GATT_CHRC_IFACE)
@@ -297,7 +286,7 @@ class CMDCharacteristic(Characteristic):
 
 
 def find_adapter(bus):
-    obj = bus.get_object('org.freedesktop.DBus', '/')
+    obj = bus.get_object(BLUEZ_SERVICE_NAME, '/')
     mgr = dbus.Interface(obj, 'org.freedesktop.DBus.ObjectManager')
     objects = mgr.GetManagedObjects()
     for path, ifaces in objects.items():
@@ -321,7 +310,6 @@ def main():
     )
 
     app = Application(bus)
-
     mainloop = GLib.MainLoop()
 
     print('Registering GATT application...')
